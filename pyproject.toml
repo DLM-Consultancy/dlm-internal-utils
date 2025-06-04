@@ -1,0 +1,12 @@
+[tool.poetry]
+name = "dlm-internal-utils"
+version = "0.0.0"
+description = "DLM internal utilities workspace (not a package)."
+authors = ["DLM Consultancy <dev@dlm.co.id>"]
+
+[tool.poetry.workspace]
+members = ["packages/*"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
