@@ -373,7 +373,7 @@ class SQLPandasConnection:
                 try:
                     if pandas_dtype == 'datetime64[ns]':
                         df[column] = pd.to_datetime(df[column], errors='coerce')
-                    elif pandas_dtype == 'int64':
+                    elif pandas_dtype in ['int64', 'Int64']:
                         df[column] = pd.to_numeric(df[column], errors='coerce').astype('Int64')
                     else:
                         df[column] = df[column].astype(pandas_dtype)
@@ -470,6 +470,8 @@ class SQLPandasConnection:
             method: Insertion method ('multi' for bulk insert)
             validate_dtypes: Whether to validate data types
         """
+        df = self._apply_sql_dtypes_to_dataframe(df, table, schema)
+
         if validate_dtypes:
             self._validate_dataframe_dtypes(df, table, schema)
         

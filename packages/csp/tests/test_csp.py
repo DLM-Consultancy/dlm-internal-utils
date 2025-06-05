@@ -10,12 +10,6 @@ TEST_TABLE = "test_table"
 TEST_SCHEMA = "cico"
 
 def test_sqlpandasconnection_full_flow():
-
-    server = os.getenv("azure_cico_server")
-    database = os.getenv("azure_cico_database")
-    username = os.getenv("azure_cico_username")
-    password = os.getenv("azure_cico_password")
-    
     conn = SQLPandasConnection(
         server=os.getenv("azure_cico_server"),
         database=os.getenv("azure_cico_database"),
@@ -74,5 +68,59 @@ def test_sqlpandasconnection_full_flow():
     finally:
         # --- 7. CLEANUP: Drop test table ---
         drop_query = f"DROP TABLE [{TEST_SCHEMA}].[{TEST_TABLE}]"
+        conn.execute_query(drop_query)
+        conn.close()
+
+def test_sqlpandasconnection_with_null_values():
+    
+    conn = SQLPandasConnection(
+        server=os.getenv("azure_cico_server"),
+        database=os.getenv("azure_cico_database"),
+        username=os.getenv("azure_cico_username"),
+        password=os.getenv("azure_cico_password"),
+        verbose=True
+    )
+
+    TEST_TABLE_NULL = "test_table_null"
+    TEST_SCHEMA = "cico"
+
+    try:
+        # --- 1. SETUP: Create table ---
+        create_query = f"""
+        CREATE TABLE [{TEST_SCHEMA}].[{TEST_TABLE_NULL}] (
+            id INT PRIMARY KEY,
+            name NVARCHAR(100) NULL,
+            score INT NULL
+        )
+        """
+        conn.execute_query(create_query)
+
+        # --- 2. INSERT: Including null values ---
+        df = pd.DataFrame([
+            {"id": 1, "name": "Alice", "score": 90},
+            {"id": 2, "name": None, "score": 75},    # null name
+            {"id": 3, "name": "Charlie", "score": None},  # null score
+            {"id": 4, "name": None, "score": None}   # all nullable
+        ])
+        conn.insert_df_to_table(table=TEST_TABLE_NULL, df=df, schema=TEST_SCHEMA)
+
+        # --- 3. GET: Validate data with nulls inserted properly ---
+        result_df = conn.get_df(table=TEST_TABLE_NULL, schema=TEST_SCHEMA, order_by="id")
+        print(result_df)
+
+        assert result_df.shape[0] == 4
+        assert pd.isna(result_df[result_df["id"] == 2]["name"].values[0])
+        assert pd.isna(result_df[result_df["id"] == 3]["score"].values[0])
+        assert pd.isna(result_df[result_df["id"] == 4]["name"].values[0])
+        assert pd.isna(result_df[result_df["id"] == 4]["score"].values[0])
+
+        # --- 4. CLEANUP rows ---
+        conn.delete_rows(table=TEST_TABLE_NULL, where_clause="WHERE id IN (1, 2, 3, 4)", schema=TEST_SCHEMA)
+        check_df = conn.get_df(table=TEST_TABLE_NULL, schema=TEST_SCHEMA)
+        assert check_df.empty
+
+    finally:
+        # --- 5. CLEANUP: Drop test table ---
+        drop_query = f"DROP TABLE [{TEST_SCHEMA}].[{TEST_TABLE_NULL}]"
         conn.execute_query(drop_query)
         conn.close()
