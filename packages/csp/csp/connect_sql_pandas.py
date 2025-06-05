@@ -5,7 +5,7 @@ import numpy as np
 import urllib
 import sqlalchemy as sa
 import logging
-from typing import Optional, List, Dict, Union, Any
+from typing import Optional, List, Union, Any
 from contextlib import contextmanager
 
 # Complete type compatibility mapping - single source of truth

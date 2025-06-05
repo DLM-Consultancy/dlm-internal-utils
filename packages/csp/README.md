@@ -16,6 +16,8 @@ pip install git+https://github.com/DLM-Consultancy/dlm-internal-utils.git#subdir
 
 ## 🔧 Setup
 
+### Built-in Connection Profiles
+
 To use built-in connection profiles (e.g. `azure_cico`), create a `.env` file in your project root or copy the provided template:
 
 ```bash
@@ -25,14 +27,32 @@ cp .env.example .env
 Then fill in your credentials like this:
 
 ```env
-azure_cico_server=dlmdbaz.database.windows.net
-azure_cico_database=DB01
+azure_cico_server=your_server
+azure_cico_database=your_database
 azure_cico_username=your_username
 azure_cico_password=your_password
 ```
 
-For new connection profiles using `os.getenv`, you may also define them in the `.env` file.  
-Example for a custom connection named `report_db`:
+### Custom Connection Profiles
+
+You can add your own connection profiles dynamically:
+
+```python
+from csp import add_connection_profiles
+import os
+
+# Add custom connection profiles
+add_connection_profiles({
+    "report_db": {
+        "server": os.getenv('report_db_server'),
+        "database": os.getenv('report_db_database'),
+        "username": os.getenv('report_db_username'),
+        "password": os.getenv('report_db_password')
+    }
+})
+```
+
+For these custom profiles, define the environment variables in your `.env` file:
 
 ```env
 report_db_server=report.internal.net
@@ -41,10 +61,16 @@ report_db_username=reportuser
 report_db_password=secretpass123
 ```
 
-Then access it via:
+### List Available Profiles
+
+You can list all available connection profiles:
 
 ```python
-conn = connect_to_database("report_db")
+from csp import list_connection_profiles
+
+# Get all registered connection profiles
+profiles = list_connection_profiles()
+print(profiles)  # ['azure_cico', 'report_db', ...]
 ```
 
 ---
@@ -61,6 +87,8 @@ conn = connect_to_database("azure_cico")
 df = conn.read("SELECT * FROM your_table")
 ```
 
+The connection system includes automatic retry logic for handling temporary connection issues.
+
 ---
 
 ## 🧩 Features
@@ -69,6 +97,8 @@ df = conn.read("SELECT * FROM your_table")
 - ✅ Retrieve query results as Pandas DataFrames
 - ✅ Execute raw SQL queries or from .sql files
 - ✅ Add your own connection profiles dynamically
+- ✅ Connection retry logic for reliability
+- ✅ Type compatibility mapping between pandas and SQL
 
 ---
 
