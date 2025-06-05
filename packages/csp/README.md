@@ -12,16 +12,30 @@ Install directly from GitHub (private repo access required):
 pip install git+https://github.com/DLM-Consultancy/dlm-internal-utils.git#subdirectory=packages/csp
 ```
 
+### Updating Packages
+
+To update to the latest version of a package, use the `--force-reinstall` flag with pip:
+
+```bash
+pip install --force-reinstall git+https://github.com/DLM-Consultancy/dlm-internal-utils.git#subdirectory=packages/csp
+```
+
+You can also install a specific branch or commit by adding `@branch-name` or `@commit-hash` to the URL:
+
+```bash
+pip install --force-reinstall git+https://github.com/DLM-Consultancy/dlm-internal-utils.git@main#subdirectory=packages/csp
+```
+
 ---
 
 ## 🔧 Setup
 
 ### Built-in Connection Profiles
 
-To use built-in connection profiles (e.g. `azure_cico`), create a `.env` file in your project root or copy the provided template:
+To use built-in connection profiles (e.g. `azure_cico`), create a `.env` file in your project root using the CLI command:
 
 ```bash
-cp .env.example .env
+csp-init-env
 ```
 
 Then fill in your credentials like this:
