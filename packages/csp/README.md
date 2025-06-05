@@ -6,7 +6,7 @@ A lightweight internal Python package to easily connect SQL databases and query 
 
 ## 🚀 Installation
 
-Install directly from GitHub (private repo access required):
+Install directly from GitHub:
 
 ```bash
 pip install git+https://github.com/DLM-Consultancy/dlm-internal-utils.git#subdirectory=packages/csp
