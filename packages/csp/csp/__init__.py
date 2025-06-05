@@ -10,7 +10,7 @@ import shutil
 import importlib.resources as res
 
 
-def copy_env_example(target_path=".env"):
+def copy_env_example(target_path=".env.example"):
     """
     Copy the bundled .env.example file to the desired target path (default: .env).
     """
