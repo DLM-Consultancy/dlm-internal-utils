@@ -31,6 +31,28 @@ dlm-internal-utils/
 
 Each package can be installed individually using pip. See the respective package README for specific installation instructions.
 
+### Package Versioning
+
+Packages in this repository follow semantic versioning (MAJOR.MINOR.PATCH) as defined in **each package's** `pyproject.toml` file. For example:
+
+```toml
+version = "0.1.1"
+```
+
+### Updating Packages
+
+To update to the latest version of a package, use the `--force-reinstall` flag with pip:
+
+```bash
+pip install --force-reinstall git+https://github.com/DLM-Consultancy/dlm-internal-utils.git#subdirectory=packages/csp
+```
+
+You can also install a specific branch or commit by adding `@branch-name` or `@commit-hash` to the URL:
+
+```bash
+pip install --force-reinstall git+https://github.com/DLM-Consultancy/dlm-internal-utils.git@main#subdirectory=packages/csp
+```
+
 ## 🛠️ Development
 
 To contribute to this repository:

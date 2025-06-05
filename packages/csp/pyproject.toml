@@ -1,10 +1,11 @@
 [tool.poetry]
 name = "csp"
-version = "0.1.0"
+version = "0.1.1" 
 description = "DLM internal SQL connector utilities"
 authors = ["DLM Consultancy <dev@dlm.co.id>"]
 packages = [{ include = "csp" }]
 readme = "README.md"
+include = ["csp/.env.example"]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"
