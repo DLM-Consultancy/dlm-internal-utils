@@ -446,7 +446,7 @@ class SQLPandasConnection:
         if table:
             df = self._apply_sql_dtypes_to_dataframe(df, table, schema)
 
-        if verbose or self.verbose:
+        if verbose:
             logging.info(f'Executed query: {final_query}')
             logging.info(f'Returned {len(df)} rows')
 

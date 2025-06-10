@@ -71,7 +71,7 @@ def list_connection_profiles():
     """
     return list(_connection_profiles.keys())
 
-def connect_to_database(connection_profile_name: str):
+def connect_to_database(connection_profile_name: str, verbose=False):
     """
     Dynamically connect to a registered SQL database.
 
@@ -95,7 +95,8 @@ def connect_to_database(connection_profile_name: str):
                 server=creds["server"],
                 database=creds["database"],
                 username=creds["username"],
-                password=creds["password"]
+                password=creds["password"],
+                verbose=verbose
             )
             return connection
         except pyodbc.Error as e:
