@@ -7,6 +7,8 @@ import sqlalchemy as sa
 import logging
 from typing import Optional, List, Union, Any
 from contextlib import contextmanager
+from sqlalchemy.exc import IntegrityError
+import re
 
 # Complete type compatibility mapping - single source of truth
 PANDAS_COMPATIBLE_SQL_TYPES = {
@@ -478,18 +480,63 @@ class SQLPandasConnection:
         if self.verbose:
             logging.info(f'Inserting {len(df)} rows to {schema}.{table}')
         
-        df.to_sql(
-            name=table,
-            schema=schema,
-            con=self.engine,
-            if_exists='append',
-            index=False,
-            chunksize=chunksize,
-            method=method
-        )
-        
-        if self.verbose:
-            logging.info(f'Successfully inserted {len(df)} rows to {schema}.{table}')
+        try:
+            df.to_sql(
+                name=table,
+                schema=schema,
+                con=self.engine,
+                if_exists='append',
+                index=False,
+                chunksize=chunksize,
+                method=method
+            )
+            
+            success_msg = f'Successfully inserted {len(df)} rows to {schema}.{table}'
+            if self.verbose:
+                logging.info(success_msg)
+            
+            return success_msg, None
+            
+        except IntegrityError as e:
+            error_msg = str(e)
+            logging.error(f"Integrity error occurred: {error_msg}")
+            
+            # Extract the problematic values from the error message
+            # Example pattern: "The duplicate key value is (68, 2)"
+            match = re.search(r"key value is \((.*?)\)", error_msg)
+            if match:
+                values = match.group(1).split(',')
+                values = [v.strip() for v in values]
+                
+                # Extract column names from the constraint name
+                constraint_match = re.search(r"constraint '([^']*)'", error_msg)
+                if constraint_match:
+                    constraint_name = constraint_match.group(1)
+                    # Extract column names from UQ_TableName_Col1_Col2 format
+                    cols = constraint_name.split('_')[2:-1]  # Skip UQ, TableName, and PlantID
+                    
+                    # Create a filter for the dataframe to find the problematic row
+                    filter_conditions = []
+                    for col, val in zip(cols, values):
+                        try:
+                            # Try to convert value to numeric if possible
+                            numeric_val = pd.to_numeric(val)
+                            filter_conditions.append(df[col] == numeric_val)
+                        except:
+                            filter_conditions.append(df[col] == val)
+                    
+                    # Combine all conditions
+                    final_filter = filter_conditions[0]
+                    for condition in filter_conditions[1:]:
+                        final_filter = final_filter & condition
+                    
+                    problematic_data = df[final_filter].copy()
+                    if not problematic_data.empty:
+                        logging.error(f"Found problematic data:\n{problematic_data}")
+                        return f"Error inserting data: {error_msg}", problematic_data
+            
+            # If we couldn't parse the error message, return the full dataframe
+            return f"Error inserting data: {error_msg}", df
     
     def execute_query(self, query: str, verbose: bool = False) -> None:
         """
