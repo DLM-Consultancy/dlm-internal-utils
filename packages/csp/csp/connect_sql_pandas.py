@@ -153,6 +153,9 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
         elif isinstance(value, pd._libs.tslibs.timestamps.Timestamp):
             datetime_str = round_datetime_seconds(str(value))
             formatted_value = f"'{datetime_str}'"
+        elif isinstance(value, datetime.datetime):
+            datetime_str = value.strftime('%Y-%m-%d %H:%M:%S')
+            formatted_value = f"'{datetime_str}'"
         else:
             formatted_value = str(value)
         
