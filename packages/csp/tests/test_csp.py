@@ -118,7 +118,6 @@ def test_sqlpandasconnection_with_null_values():
 
         # --- 3. GET: Validate data with nulls inserted properly ---
         result_df = conn.get_df(table=TEST_TABLE_NULL, schema=TEST_SCHEMA, order_by="id")
-        print(result_df)
 
         assert result_df.shape[0] == 4
         assert pd.isna(result_df[result_df["id"] == 2]["name"].values[0])
@@ -134,5 +133,70 @@ def test_sqlpandasconnection_with_null_values():
     finally:
         # --- 5. CLEANUP: Drop test table ---
         drop_query = f"DROP TABLE [{TEST_SCHEMA}].[{TEST_TABLE_NULL}]"
+        conn.execute_query(drop_query)
+        conn.close()
+
+def test_string_dates_to_datetime():
+    """
+    Test that string dates in object columns can be inserted into datetime SQL columns.
+    This specifically tests the fix for datetime validation allowing object columns to be
+    compatible with SQL datetime fields.
+    """
+    conn = SQLPandasConnection(
+        server=os.getenv("azure_cico_server"),
+        database=os.getenv("azure_cico_database"),
+        username=os.getenv("azure_cico_username"),
+        password=os.getenv("azure_cico_password"),
+        verbose=True
+    )
+
+    TEST_TABLE_DATES = "test_table_dates"
+    TEST_SCHEMA = "cico"
+
+    try:
+        # --- 1. SETUP: Create table with datetime columns ---
+        create_query = f"""
+        CREATE TABLE [{TEST_SCHEMA}].[{TEST_TABLE_DATES}] (
+            id INT PRIMARY KEY,
+            name NVARCHAR(100),
+            created_date DATETIME,
+            end_date DATETIME NULL
+        )
+        """
+        conn.execute_query(create_query)
+
+        # --- 2. INSERT: Using string dates (object dtype) ---
+        # IMPORTANT: These are strings, not datetime objects
+        df = pd.DataFrame([
+            {"id": 1, "name": "Test1", "created_date": "2025-01-01 10:30:00", "end_date": "2025-12-31 23:59:59"},
+            {"id": 2, "name": "Test2", "created_date": "2025-06-15 08:45:00", "end_date": None}
+        ])
+        
+        # Confirm these are actually object dtype, not datetime
+        assert df["created_date"].dtype == 'object'
+        assert df["end_date"].dtype == 'object'
+        
+        # Insert the DataFrame with string dates into the table with datetime columns
+        conn.insert_df_to_table(table=TEST_TABLE_DATES, df=df, schema=TEST_SCHEMA)
+
+        # --- 3. GET and validate data ---
+        result_df = conn.get_df(table=TEST_TABLE_DATES, schema=TEST_SCHEMA, order_by="id")
+
+        # Verify data was inserted correctly
+        assert result_df.shape[0] == 2
+        
+        # String dates should be converted to datetime objects
+        assert isinstance(result_df.iloc[0]["created_date"], pd._libs.tslibs.timestamps.Timestamp)
+        assert result_df.iloc[0]["created_date"].year == 2025
+        assert result_df.iloc[0]["created_date"].month == 1
+        assert result_df.iloc[0]["created_date"].day == 1
+        
+        # Verify end_date NULL handling
+        assert isinstance(result_df.iloc[0]["end_date"], pd._libs.tslibs.timestamps.Timestamp)
+        assert pd.isna(result_df.iloc[1]["end_date"])
+
+    finally:
+        # --- 4. CLEANUP: Drop test table ---
+        drop_query = f"DROP TABLE [{TEST_SCHEMA}].[{TEST_TABLE_DATES}]"
         conn.execute_query(drop_query)
         conn.close()
