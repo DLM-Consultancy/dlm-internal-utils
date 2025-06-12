@@ -556,23 +556,34 @@ class SQLPandasConnection:
             # If we couldn't parse the error message, return the full dataframe
             return f"Error inserting data: {error_msg}", df
     
-    def execute_query(self, query: str, verbose: bool = False) -> None:
+    def execute_query(self, query: str, verbose: bool = False) -> int:
         """
-        Execute a SQL query without returning results.
+        Execute a SQL query and return the number of affected rows.
         
         Args:
             query: SQL query to execute
             verbose: Enable verbose logging
+            
+        Returns:
+            int: The number of rows affected by the query
+            
+        Raises:
+            Exception: If the query execution fails
         """
         with self.get_cursor() as cursor:
             if verbose or self.verbose:
                 logging.info(f'Executing query: {query}')
-            
-            cursor.execute(query)
-            self.connection.commit()
-            
-            if verbose or self.verbose:
-                logging.info('Query executed successfully')
+            try:
+                cursor.execute(query)
+                rows_affected = cursor.rowcount
+                self.connection.commit()
+                if verbose or self.verbose:
+                    logging.info('Query executed successfully')
+                return rows_affected
+            except Exception as e:
+                logging.error(e)
+                raise
+
     
     def update_row_sql(self, 
                         table: str, 
