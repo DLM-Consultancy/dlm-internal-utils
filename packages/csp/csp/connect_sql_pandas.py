@@ -382,9 +382,16 @@ class SQLPandasConnection:
                     if pandas_dtype == 'datetime64[ns]':
                         result_df.loc[:, column] = pd.to_datetime(result_df[column], errors='coerce')
                     elif pandas_dtype in ['int64', 'Int64']:
-                        result_df.loc[:, column] = pd.to_numeric(result_df[column], errors='coerce').astype('Int64')
+                        # Create a completely new Series to avoid type compatibility issues
+                        numeric_values = pd.to_numeric(result_df[column], errors='coerce')
+                        # Make a copy with explicit index to ensure alignment
+                        result_df = result_df.copy()
+                        # Replace the column completely instead of using .loc
+                        result_df[column] = pd.Series(numeric_values, index=result_df.index).astype('Int64')
                     else:
-                        result_df.loc[:, column] = result_df[column].astype(pandas_dtype)
+                        # Create a new Series to avoid type compatibility warnings
+                        result_df = result_df.copy()
+                        result_df[column] = pd.Series(result_df[column], index=result_df.index).astype(pandas_dtype)
                         
                 except Exception as e:
                     if self.verbose:
