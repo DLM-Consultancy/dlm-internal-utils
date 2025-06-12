@@ -52,6 +52,11 @@ def are_types_compatible(pandas_dtype: str, sql_dtype: str) -> bool:
     Returns:
         True if types are compatible
     """
+    # Special case for object columns and datetime fields - allow string/object types to be compatible with datetime
+    # since they can be converted by _apply_sql_dtypes_to_dataframe later
+    if pandas_dtype == 'object' and sql_dtype.lower() in PANDAS_COMPATIBLE_SQL_TYPES['datetime64[ns]']:
+        return True
+        
     compatible_sql_types = PANDAS_COMPATIBLE_SQL_TYPES.get(pandas_dtype, set())
     return sql_dtype.lower() in compatible_sql_types
 
