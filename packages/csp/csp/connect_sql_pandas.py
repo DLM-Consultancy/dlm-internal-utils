@@ -581,7 +581,7 @@ class SQLPandasConnection:
     def update_multiple_rows_sql(self, 
                               table: str, 
                               data_list: List[pd.Series], 
-                              where_clauses: List[str], 
+                              where_clauses: Union[List[str], str], 
                               schema: str = 'dbo',
                               verbose: bool = False) -> None:
         """
@@ -590,19 +590,26 @@ class SQLPandasConnection:
         Args:
             table: Target table name
             data_list: List of Series with column-value pairs (one per row)
-            where_clauses: List of WHERE clauses for row identification (one per row)
+            where_clauses: Either a list of WHERE clauses (one per row) or a single WHERE clause to apply to all rows
             schema: Schema name
             verbose: Enable verbose logging
         """
-        if len(data_list) != len(where_clauses):
-            raise ValueError("Length of data_list and where_clauses must match")
+        if isinstance(where_clauses, str):
+            # If where_clauses is a string, create a list with the same where clause for each data item
+            where_clauses_list = [where_clauses] * len(data_list)
+        else:
+            # If where_clauses is already a list, make sure its length matches data_list
+            if len(data_list) != len(where_clauses):
+                raise ValueError("Length of data_list and where_clauses must match when where_clauses is a list")
+            where_clauses_list = where_clauses
 
-        for data, where_clause in zip(data_list, where_clauses):
+        for data, where_clause in zip(data_list, where_clauses_list):
             query = build_update_query(table, data, where_clause, schema)
             self.execute_query(query, verbose)
 
             if verbose or self.verbose:
                 logging.info(f"Successfully updated row in {schema}.{table}")
+
 
     def delete_rows(self, 
                    table: str, 
