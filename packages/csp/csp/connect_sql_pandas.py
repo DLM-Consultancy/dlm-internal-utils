@@ -354,40 +354,50 @@ class SQLPandasConnection:
         Returns:
             DataFrame with corrected data types
         """
+        # Create an explicit copy to avoid SettingWithCopyWarning
+        result_df = df.copy()
+        
         # Get table schema information
         table_info = self.get_table_info(table, schema)
         
         # If table info is empty, return DataFrame as-is with basic cleaning
         if table_info.empty:
-            df = df.fillna('')
+            result_df = result_df.fillna('')
             # Convert datetime columns to string for safety
-            for col in df.columns:
-                if pd.api.types.is_datetime64_any_dtype(df[col]):
-                    df[col] = df[col].dt.strftime('%Y-%m-%d %H:%M:%S')
-            return df
+            for col in result_df.columns:
+                if pd.api.types.is_datetime64_any_dtype(result_df[col]):
+                    result_df.loc[:, col] = result_df[col].dt.strftime('%Y-%m-%d %H:%M:%S')
+            return result_df
         
         # Create mapping of column names to SQL types
         sql_types = dict(zip(table_info['column_name'], table_info['type_name']))
         
         # Apply correct data types
-        for column in df.columns:
+        for column in result_df.columns:
             if column in sql_types:
                 sql_dtype = sql_types[column]
                 pandas_dtype = sql_type_to_pandas(sql_dtype)
                 
                 try:
                     if pandas_dtype == 'datetime64[ns]':
-                        df[column] = pd.to_datetime(df[column], errors='coerce')
+                        result_df.loc[:, column] = pd.to_datetime(result_df[column], errors='coerce')
                     elif pandas_dtype in ['int64', 'Int64']:
-                        df[column] = pd.to_numeric(df[column], errors='coerce').astype('Int64')
+                        # Create a completely new Series to avoid type compatibility issues
+                        numeric_values = pd.to_numeric(result_df[column], errors='coerce')
+                        # Make a copy with explicit index to ensure alignment
+                        result_df = result_df.copy()
+                        # Replace the column completely instead of using .loc
+                        result_df[column] = pd.Series(numeric_values, index=result_df.index).astype('Int64')
                     else:
-                        df[column] = df[column].astype(pandas_dtype)
+                        # Create a new Series to avoid type compatibility warnings
+                        result_df = result_df.copy()
+                        result_df[column] = pd.Series(result_df[column], index=result_df.index).astype(pandas_dtype)
                         
                 except Exception as e:
                     if self.verbose:
                         logging.warning(f"Could not convert column '{column}' to {pandas_dtype}: {e}")
         
-        return df
+        return result_df
     
     def get_df(self, 
             table: Optional[str] = None,
