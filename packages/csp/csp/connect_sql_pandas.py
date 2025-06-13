@@ -5,6 +5,7 @@ import numpy as np
 import urllib
 import sqlalchemy as sa
 import logging
+logging.basicConfig(level=logging.INFO)
 from typing import Optional, List, Union, Any
 from contextlib import contextmanager
 from sqlalchemy.exc import IntegrityError
@@ -385,7 +386,49 @@ class SQLPandasConnection:
                 
                 try:
                     if pandas_dtype == 'datetime64[ns]':
+                        # Identify dates outside the pandas datetime64[ns] supported range (1677-2262)
+                        # We'll keep these as original values
+                        preserved_dates = {}
+                        
+                        for idx in result_df.index:
+                            val = result_df.loc[idx, column]
+                            
+                            # Handle string dates
+                            if isinstance(val, str) and val:
+                                try:
+                                    year_str = val.split('-')[0]
+                                    year = int(year_str)
+                                    # Only convert to datetime if within pandas supported range
+                                    if year < 1677 or year > 2262:
+                                        preserved_dates[idx] = val
+                                        logging.warning(f"Date outside pandas supported range: {val}. Keeping as original value.")
+                                except Exception:
+                                    pass  # Not a date string format or couldn't parse year
+                                    
+                            # Handle Python datetime objects
+                            elif hasattr(val, 'year'): 
+                                try:
+                                    # Only convert to datetime if within pandas supported range
+                                    if val.year < 1677 or val.year > 2262:
+                                        date_str = val.strftime('%Y-%m-%d %H:%M:%S')
+                                        preserved_dates[idx] = date_str
+                                        logging.warning(f"Date outside pandas supported range: {date_str}. Keeping as original value.")
+                                except Exception as e:
+                                    logging.error(f"Error handling datetime: {e}")
+                        
+                        # Use pandas to convert what it can
                         result_df.loc[:, column] = pd.to_datetime(result_df[column], errors='coerce')
+                        
+                        # Restore original values for dates outside pandas range
+                        for idx, val in preserved_dates.items():
+                            result_df.loc[idx, column] = val
+                        
+                        if preserved_dates and self.verbose:
+                            logging.info(f"Preserved {len(preserved_dates)} dates outside pandas range for column '{column}'")
+                            logging.info(f"Column dtype after preservation: {result_df[column].dtype}")
+                            logging.info(f"Example values: {result_df[column].head()}")
+
+                        
                     elif pandas_dtype in ['int64', 'Int64']:
                         # Create a completely new Series to avoid type compatibility issues
                         numeric_values = pd.to_numeric(result_df[column], errors='coerce')
