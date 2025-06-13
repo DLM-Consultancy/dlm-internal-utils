@@ -177,13 +177,13 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
 
 def round_datetime_seconds(datetime_str: str) -> str:
     """
-    Round seconds in datetime string to avoid precision issues.
+    Round seconds in datetime string with proper formatting.
     
     Args:
         datetime_str: Datetime as string
         
     Returns:
-        Datetime string with rounded seconds
+        Datetime string with rounded seconds, properly formatted
     """
     try:
         parts = datetime_str.split()
@@ -195,11 +195,16 @@ def round_datetime_seconds(datetime_str: str) -> str:
         
         if len(time_parts) >= 3:
             hour, minute = time_parts[0], time_parts[1]
-            second = str(round(float(time_parts[2])))
+            # Round the seconds and ensure it's formatted with at least 2 digits
+            second_float = float(time_parts[2])
+            second_rounded = round(second_float)
             
             # Handle edge case where rounding gives 60 seconds
-            if second == '60':
-                second = '59'
+            if second_rounded == 60:
+                second_rounded = 59
+            
+            # Format with two digits (e.g., '01' instead of '1')
+            second = f"{second_rounded:02d}"
             
             return f"{date_part} {hour}:{minute}:{second}"
     except (ValueError, IndexError):
@@ -651,8 +656,6 @@ class SQLPandasConnection:
             verbose: Enable verbose logging
         """
         query = build_update_query(table, data, where_clause, schema)
-        if verbose or self.verbose:
-            logging.info(f'Executing update query: {query}')
         self.execute_query(query, verbose)        
         if verbose or self.verbose:
             logging.info(f'Successfully updated row in {schema}.{table}')
@@ -684,8 +687,6 @@ class SQLPandasConnection:
 
         for data, where_clause in zip(data_list, where_clauses_list):
             query = build_update_query(table, data, where_clause, schema)
-            if verbose or self.verbose:
-                logging.info(f"Executing update query: {query}")
             self.execute_query(query, verbose)
             if verbose or self.verbose:
                 logging.info(f"Successfully updated row in {schema}.{table}")
