@@ -200,3 +200,86 @@ def test_string_dates_to_datetime():
         drop_query = f"DROP TABLE [{TEST_SCHEMA}].[{TEST_TABLE_DATES}]"
         conn.execute_query(drop_query)
         conn.close()
+
+def test_extreme_datetime_values():
+    """
+    Test handling of extreme datetime values that exceed SQL Server's limits.
+    SQL Server can only handle dates between 1753-01-01 and 9999-12-31.
+    This test verifies that our datetime validation correctly handles values outside this range.
+    """
+    conn = SQLPandasConnection(
+        server=os.getenv("azure_cico_server"),
+        database=os.getenv("azure_cico_database"),
+        username=os.getenv("azure_cico_username"),
+        password=os.getenv("azure_cico_password"),
+        verbose=True
+    )
+
+    TEST_TABLE_EXTREME = "test_table_extreme_dates"
+    TEST_SCHEMA = "cico"
+
+    try:
+        # --- 1. SETUP: Drop table if it exists first ---
+        try:
+            conn.execute_query(f"DROP TABLE IF EXISTS [{TEST_SCHEMA}].[{TEST_TABLE_EXTREME}]")
+        except Exception as e:
+            # For SQL Server versions that don't support DROP IF EXISTS
+            try:
+                conn.execute_query(f"DROP TABLE [{TEST_SCHEMA}].[{TEST_TABLE_EXTREME}]")
+            except:
+                pass
+                
+        # Create table with datetime columns
+        create_query = f"""
+        CREATE TABLE [{TEST_SCHEMA}].[{TEST_TABLE_EXTREME}] (
+            id INT PRIMARY KEY,
+            name NVARCHAR(100),
+            created_date DATETIME,
+            end_date DATETIME NULL
+        )
+        """
+        conn.execute_query(create_query)
+
+        # --- 2. INSERT: Normal date values first ---
+        df = pd.DataFrame([
+            {"id": 1, "name": "Normal Date", "created_date": "2025-01-01 10:30:00", "end_date": "2025-01-01 10:30:00"},
+        ])
+        
+        # Insert the DataFrame with normal dates
+        conn.insert_df_to_table(table=TEST_TABLE_EXTREME, df=df, schema=TEST_SCHEMA, validate_dtypes=False)
+        
+        # Verify max date was stored correctly
+        result_df = conn.get_df(table=TEST_TABLE_EXTREME, schema=TEST_SCHEMA, where_clause="WHERE id = 1")
+        assert result_df.iloc[0]["name"] == "Normal Date"
+        assert str(result_df.iloc[0]["end_date"]) == '2025-01-01 10:30:00'   # Convert timestamp to string for comparison
+        
+        # --- 3. TEST: Extreme date value that exceeds SQL Server's limits ---
+        # This date (year 5000) exceeds SQL Server's maximum date (9999-12-31)
+        extreme_date = datetime.datetime(5000, 12, 31, 23, 59, 59)
+        
+        # Prepare update data with extreme date
+        update_data = pd.Series({
+            "name": "Extreme Date Test", 
+            "end_date": extreme_date
+        })
+        
+        # Update with extreme date - our fix should handle this gracefully
+        conn.update_row_sql(
+            table=TEST_TABLE_EXTREME, 
+            data=update_data, 
+            where_clause="WHERE id = 1", 
+            schema=TEST_SCHEMA
+        )
+        
+        # Verify max date was stored correctly
+        result_df = conn.get_df(table=TEST_TABLE_EXTREME, schema=TEST_SCHEMA, where_clause="WHERE id = 1")
+        assert result_df.iloc[0]["name"] == "Extreme Date Test"
+        assert not pd.isna(result_df.iloc[0]["end_date"])  # Should NOT be NaT
+        # For extreme dates, we need to check the string representation since pandas can't represent 5000-12-31
+        assert str(result_df.iloc[0]["end_date"]) == '5000-12-31 23:59:59'   # Should be year 5000
+
+    finally:
+        # --- 6. CLEANUP: Drop test table ---
+        drop_query = f"DROP TABLE [{TEST_SCHEMA}].[{TEST_TABLE_EXTREME}]"
+        conn.execute_query(drop_query)
+        conn.close()
