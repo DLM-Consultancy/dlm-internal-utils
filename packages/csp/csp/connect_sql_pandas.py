@@ -417,7 +417,11 @@ class SQLPandasConnection:
                                     logging.error(f"Error handling datetime: {e}")
                         
                         # Use pandas to convert what it can
-                        result_df.loc[:, column] = pd.to_datetime(result_df[column], errors='coerce')
+                        result_df.loc[:, column] = pd.to_datetime(
+                            result_df[column], 
+                            errors='coerce',
+                            format='%Y-%m-%d %H:%M:%S'
+                            )
                         
                         # Restore original values for dates outside pandas range
                         for idx, val in preserved_dates.items():
