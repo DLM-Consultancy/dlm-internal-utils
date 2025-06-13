@@ -651,8 +651,9 @@ class SQLPandasConnection:
             verbose: Enable verbose logging
         """
         query = build_update_query(table, data, where_clause, schema)
-        self.execute_query(query, verbose)
-        
+        if verbose or self.verbose:
+            logging.info(f'Executing update query: {query}')
+        self.execute_query(query, verbose)        
         if verbose or self.verbose:
             logging.info(f'Successfully updated row in {schema}.{table}')
     
@@ -683,8 +684,9 @@ class SQLPandasConnection:
 
         for data, where_clause in zip(data_list, where_clauses_list):
             query = build_update_query(table, data, where_clause, schema)
+            if verbose or self.verbose:
+                logging.info(f"Executing update query: {query}")
             self.execute_query(query, verbose)
-
             if verbose or self.verbose:
                 logging.info(f"Successfully updated row in {schema}.{table}")
 
