@@ -401,7 +401,8 @@ class SQLPandasConnection:
                                     # Only convert to datetime if within pandas supported range
                                     if year < 1677 or year > 2262:
                                         preserved_dates[idx] = val
-                                        logging.warning(f"Date outside pandas supported range: {val}. Keeping as original value.")
+                                        if self.verbose:
+                                            logging.warning(f"Date outside pandas supported range: {val}. Keeping as original value.")
                                 except Exception:
                                     pass  # Not a date string format or couldn't parse year
                                     
@@ -412,12 +413,17 @@ class SQLPandasConnection:
                                     if val.year < 1677 or val.year > 2262:
                                         date_str = val.strftime('%Y-%m-%d %H:%M:%S')
                                         preserved_dates[idx] = date_str
-                                        logging.warning(f"Date outside pandas supported range: {date_str}. Keeping as original value.")
+                                        if self.verbose:
+                                            logging.warning(f"Date outside pandas supported range: {date_str}. Keeping as original value.")
                                 except Exception as e:
                                     logging.error(f"Error handling datetime: {e}")
                         
                         # Use pandas to convert what it can
-                        result_df.loc[:, column] = pd.to_datetime(result_df[column], errors='coerce')
+                        result_df.loc[:, column] = pd.to_datetime(
+                            result_df[column], 
+                            errors='coerce',
+                            format='%Y-%m-%d %H:%M:%S'
+                            )
                         
                         # Restore original values for dates outside pandas range
                         for idx, val in preserved_dates.items():
