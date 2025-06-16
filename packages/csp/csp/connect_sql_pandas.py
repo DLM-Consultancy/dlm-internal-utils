@@ -150,15 +150,26 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
         SQL UPDATE query string
     """
     set_clauses = []
+    logging.info(f"Building update query for table: [{schema}].[{table}]")
     
     for column, value in data.items():
+        # Log the column name, value, and type for every field
+        logging.info(f"Processing column: {column}, Value: {value}, Type: {type(value)}, Repr: {repr(value)}")
+        
         if pd.isna(value) or value is None:
             formatted_value = 'NULL'
+            logging.info(f"{column}: Handling as NULL value")
         elif isinstance(value, str):
-            formatted_value = f"'{value}'"
-        # elif isinstance(value, pd._libs.tslibs.timestamps.Timestamp):
-        #     datetime_str = round_datetime_seconds(str(value))
-        #     formatted_value = f"'{datetime_str}'"
+            # Check if it's possibly a datetime string
+            if re.match(r'\d{4}-\d{2}-\d{2}.*\d{2}:\d{2}:\d{2}', value):
+                logging.warning(f"{column}: String looks like datetime: {value}")
+                # Handle potential datetime string with microseconds
+                if '.' in value:
+                    base, micros = value.split('.')
+                    value = f"{base}.{micros[:3]}" if len(micros) > 3 else f"{base}.{micros}"
+                formatted_value = f"'{value}'"
+            else:
+                formatted_value = f"'{value}'"
         elif isinstance(value, pd._libs.tslibs.timestamps.Timestamp):
             # Format with 3 decimal places max for SQL Server compatibility
             datetime_str = value.strftime('%Y-%m-%d %H:%M:%S.%f')
@@ -167,14 +178,33 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
                 base, micros = datetime_str.split('.')
                 datetime_str = f"{base}.{micros[:3]}"
             formatted_value = f"'{datetime_str}'"    
-            logging.info(f"Timestamp: {column} -> {datetime_str}")
         elif isinstance(value, datetime.datetime):
-            datetime_str = value.strftime('%Y-%m-%d %H:%M:%S')
+            if value.microsecond > 0:
+                # Format with milliseconds (3 decimal places)
+                datetime_str = value.strftime('%Y-%m-%d %H:%M:%S.%f')
+                # Truncate to 3 decimal places
+                if '.' in datetime_str:
+                    base, micros = datetime_str.split('.')
+                    datetime_str = f"{base}.{micros[:3]}"
+            else:
+                datetime_str = value.strftime('%Y-%m-%d %H:%M:%S')
             formatted_value = f"'{datetime_str}'"
-            logging.info(f"Datetime: {column} -> {datetime_str}")
         else:
-            formatted_value = str(value)
-            logging.info(f"Other: {column} -> {formatted_value}")
+            # Check if it might be a custom datetime-like object
+            try:
+                if hasattr(value, 'strftime'):
+                    logging.warning(f"{column}: Found object with strftime method - trying to format as datetime")
+                    datetime_str = value.strftime('%Y-%m-%d %H:%M:%S')
+                    if hasattr(value, 'microsecond') and value.microsecond > 0:
+                        ms_str = str(value.microsecond).zfill(6)[:3]
+                        datetime_str = f"{datetime_str}.{ms_str}"
+                    formatted_value = f"'{datetime_str}'"
+                else:
+                    formatted_value = str(value)
+            except Exception as e:
+                logging.warning(f"{column}: Error handling value ({type(value)}): {str(e)}")
+                # Default fallback
+                formatted_value = str(value)
         
         set_clauses.append(f"[{column}] = {formatted_value}")
     
@@ -184,6 +214,7 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
     if where_clause:
         query += f"\n{where_clause}"
     
+
     return query + ";"
 
 def round_datetime_seconds(datetime_str: str) -> str:
