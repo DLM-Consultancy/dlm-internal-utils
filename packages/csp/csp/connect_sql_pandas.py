@@ -489,6 +489,12 @@ class SQLPandasConnection:
         # Apply SQL data types if table is specified
         if table:
             df = self._apply_sql_dtypes_to_dataframe(df, table, schema)
+        else:
+            # Change datetime to string
+            for col in df.columns:
+                if df[col].dtype == "datetime64[ns]":
+                    df[col] = df[col].dt.strftime('%Y-%m-%d %H:%M:%S')
+            return df
 
         if verbose:
             logging.info(f'Executed query: {final_query}')
