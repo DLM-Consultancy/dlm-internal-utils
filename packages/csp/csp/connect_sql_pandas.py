@@ -156,9 +156,18 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
             formatted_value = 'NULL'
         elif isinstance(value, str):
             formatted_value = f"'{value}'"
+        # elif isinstance(value, pd._libs.tslibs.timestamps.Timestamp):
+        #     datetime_str = round_datetime_seconds(str(value))
+        #     formatted_value = f"'{datetime_str}'"
         elif isinstance(value, pd._libs.tslibs.timestamps.Timestamp):
-            datetime_str = round_datetime_seconds(str(value))
-            formatted_value = f"'{datetime_str}'"
+            # Format with 3 decimal places max for SQL Server compatibility
+            datetime_str = value.strftime('%Y-%m-%d %H:%M:%S.%f')
+            # Truncate to milliseconds (3 decimal places)
+            if '.' in datetime_str:
+                base, micros = datetime_str.split('.')
+                datetime_str = f"{base}.{micros[:3]}"
+            formatted_value = f"'{datetime_str}'"    
+            
         elif isinstance(value, datetime.datetime):
             datetime_str = value.strftime('%Y-%m-%d %H:%M:%S')
             formatted_value = f"'{datetime_str}'"
