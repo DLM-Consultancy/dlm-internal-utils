@@ -176,44 +176,11 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
     return query + ";"
 
 def round_datetime_seconds(datetime_str: str) -> str:
-    """
-    Format datetime string properly for SQL Server.
-    
-    Args:
-        datetime_str: Datetime as string
-        
-    Returns:
-        Datetime string with properly formatted time
-    """
-    try:
-        # Remove any microseconds or fractional seconds
-        if '.' in datetime_str:
-            datetime_str = datetime_str.split('.')[0]
-            
-        parts = datetime_str.split()
-        if len(parts) < 2:
-            return datetime_str
-            
-        date_part = parts[0]
-        time_parts = parts[1].split(':')
-        
-        if len(time_parts) >= 3:
-            hour, minute = time_parts[0], time_parts[1]
-            second_float = float(time_parts[2])
-            second_rounded = round(second_float)
-            
-            # Handle edge case where rounding gives 60 seconds
-            if second_rounded == 60:
-                second_rounded = 59
-            
-            # Format with two digits
-            second = f"{second_rounded:02d}"
-            
-            return f"{date_part} {hour}:{minute}:{second}"
-    except (ValueError, IndexError):
-        pass
-    
+    """Very simple solution - just remove microseconds completely"""
+    if '.' in datetime_str:
+        return datetime_str.split('.')[0]
     return datetime_str
+
 
 class SQLPandasConnection:
     """
