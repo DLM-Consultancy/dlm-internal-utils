@@ -277,6 +277,31 @@ def test_extreme_datetime_values():
         assert not pd.isna(result_df.iloc[0]["end_date"])  # Should NOT be NaT
         # For extreme dates, we need to check the string representation since pandas can't represent 5000-12-31
         assert str(result_df.iloc[0]["end_date"]) == '5000-12-31 23:59:59'   # Should be year 5000
+        
+        # --- 4. TEST: Decimal date with milliseconds ---
+        # Test handling of timestamps with millisecond precision
+        decimal_date = pd.Timestamp("2025-06-16 12:53:58.130000")
+        
+        # Prepare update data with millisecond timestamp
+        update_data = pd.Series({
+            "name": "Decimal Date Test", 
+            "end_date": decimal_date
+        })
+        
+        # Update with millisecond timestamp - our fix should handle this gracefully
+        conn.update_row_sql(
+            table=TEST_TABLE_EXTREME, 
+            data=update_data, 
+            where_clause="WHERE id = 1", 
+            schema=TEST_SCHEMA
+        )
+        
+        # Verify millisecond timestamp was stored correctly
+        result_df = conn.get_df(table=TEST_TABLE_EXTREME, schema=TEST_SCHEMA, where_clause="WHERE id = 1")
+        assert result_df.iloc[0]["name"] == "Decimal Date Test"
+        assert not pd.isna(result_df.iloc[0]["end_date"])  # Should NOT be NaT
+        # Check that milliseconds are preserved correctly (truncated to 3 places)
+        assert result_df.iloc[0]["end_date"] == pd.Timestamp("2025-06-16 12:53:58.13")
 
     finally:
         # --- 6. CLEANUP: Drop test table ---
