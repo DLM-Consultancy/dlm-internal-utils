@@ -167,12 +167,14 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
                 base, micros = datetime_str.split('.')
                 datetime_str = f"{base}.{micros[:3]}"
             formatted_value = f"'{datetime_str}'"    
-            
+            logging.info(f"Timestamp: {column} -> {datetime_str}")
         elif isinstance(value, datetime.datetime):
             datetime_str = value.strftime('%Y-%m-%d %H:%M:%S')
             formatted_value = f"'{datetime_str}'"
+            logging.info(f"Datetime: {column} -> {datetime_str}")
         else:
             formatted_value = str(value)
+            logging.info(f"Other: {column} -> {formatted_value}")
         
         set_clauses.append(f"[{column}] = {formatted_value}")
     
