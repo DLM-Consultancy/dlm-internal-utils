@@ -150,19 +150,15 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
         SQL UPDATE query string
     """
     set_clauses = []
-    logging.info(f"Building update query for table: [{schema}].[{table}]")
     
     for column, value in data.items():
         # Log the column name, value, and type for every field
-        logging.info(f"Processing column: {column}, Value: {value}, Type: {type(value)}, Repr: {repr(value)}")
-        
         if pd.isna(value) or value is None:
             formatted_value = 'NULL'
             logging.info(f"{column}: Handling as NULL value")
         elif isinstance(value, str):
             # Check if it's possibly a datetime string
             if re.match(r'\d{4}-\d{2}-\d{2}.*\d{2}:\d{2}:\d{2}', value):
-                logging.warning(f"{column}: String looks like datetime: {value}")
                 # Handle potential datetime string with microseconds
                 if '.' in value:
                     base, micros = value.split('.')
