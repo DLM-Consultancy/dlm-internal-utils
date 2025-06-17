@@ -52,11 +52,12 @@ def test_sqlpandasconnection_full_flow():
 
         # --- 4. UPDATE single row ---
         current_time = datetime.datetime.now()
-        update_row = pd.Series({"name": "Alice Updated", "score": 95, "credit_score": 8.5, "bool": False, "last_update": current_time})
+        update_row = pd.Series({"name": "Alice Updated", "score": "95.0", "credit_score": 8.5, "bool": False, "last_update": current_time})
         conn.update_row_sql(table=TEST_TABLE, data=update_row, where_clause="WHERE id = 1", schema=TEST_SCHEMA)
 
         check_df = conn.get_df(table=TEST_TABLE, schema=TEST_SCHEMA, where_clause="WHERE id = 1")
         assert check_df.iloc[0]["name"] == "Alice Updated"
+        assert check_df.iloc[0]["score"] == 95
         assert check_df.iloc[0]["bool"] == False
         assert check_df.iloc[0]["credit_score"] == 8.5
         # Verify datetime was properly updated 

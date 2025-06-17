@@ -179,6 +179,19 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
             # Check if it's a boolean string
             elif value.lower() in ['true', 'false']:
                 formatted_value = int(value.lower() == 'true')
+            # Check if it's a numeric string first
+            elif value.replace('.', '', 1).isdigit():  # Fast check if it's numeric (allows one decimal point)
+                try:
+                    # Try to convert to float
+                    num_val = float(value)
+                    # If it's a whole number, convert to int to remove the decimal point
+                    if num_val.is_integer():
+                        formatted_value = str(int(num_val))
+                    else:
+                        formatted_value = str(num_val)  # Keep as float string without quotes
+                except ValueError:
+                    # Not a valid number, treat as regular string
+                    formatted_value = f"'{value}'"
             else:
                 formatted_value = f"'{value}'"
         elif isinstance(value, pd._libs.tslibs.timestamps.Timestamp):
