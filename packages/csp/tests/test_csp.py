@@ -26,6 +26,7 @@ def test_sqlpandasconnection_full_flow():
             id INT PRIMARY KEY,
             name NVARCHAR(100),
             score INT,
+            credit_score float,
             bool BIT,
             created_date DATETIME,
             last_update DATETIME
@@ -37,8 +38,8 @@ def test_sqlpandasconnection_full_flow():
         current_time = datetime.datetime.now()
         yesterday = current_time - datetime.timedelta(days=1)
         df = pd.DataFrame([
-            {"id": 1, "name": "Alice", "score": 90, "bool": True, "created_date": yesterday, "last_update": yesterday},
-            {"id": 2, "name": "Bob", "score": 85, "bool": False, "created_date": yesterday, "last_update": yesterday}
+            {"id": 1, "name": "Alice", "score": 90, "credit_score": 6.5, "bool": True, "created_date": yesterday, "last_update": yesterday},
+            {"id": 2, "name": "Bob", "score": 85, "credit_score": 7.0, "bool": False, "created_date": yesterday, "last_update": yesterday}
         ])
         conn.insert_df_to_table(table=TEST_TABLE, df=df, schema=TEST_SCHEMA)
 
@@ -47,15 +48,17 @@ def test_sqlpandasconnection_full_flow():
         assert not result_df.empty
         assert result_df.iloc[0]["name"] == "Alice"
         assert result_df.iloc[0]["bool"] == True
+        assert result_df.iloc[0]["credit_score"] == 6.5
 
         # --- 4. UPDATE single row ---
         current_time = datetime.datetime.now()
-        update_row = pd.Series({"name": "Alice Updated", "score": 95, "bool": False, "last_update": current_time})
+        update_row = pd.Series({"name": "Alice Updated", "score": 95, "credit_score": 8.5, "bool": False, "last_update": current_time})
         conn.update_row_sql(table=TEST_TABLE, data=update_row, where_clause="WHERE id = 1", schema=TEST_SCHEMA)
 
         check_df = conn.get_df(table=TEST_TABLE, schema=TEST_SCHEMA, where_clause="WHERE id = 1")
         assert check_df.iloc[0]["name"] == "Alice Updated"
         assert check_df.iloc[0]["bool"] == False
+        assert check_df.iloc[0]["credit_score"] == 8.5
         # Verify datetime was properly updated 
         assert check_df.iloc[0]["last_update"].date() == current_time.date()
 
@@ -63,7 +66,7 @@ def test_sqlpandasconnection_full_flow():
         update_time = datetime.datetime.now()
         data_list = [
             pd.Series({"name": "Bob Updated", "score": 99, "bool": True, "last_update": update_time}),
-            pd.Series({"name": "Alice Final", "score": 100, "last_update": update_time})
+            pd.Series({"name": "Alice Final", "score": 100,"credit_score": 10, "last_update": update_time})
         ]
         where_clauses = ["WHERE id = 2", "WHERE id = 1"]
         conn.update_multiple_rows_sql(table=TEST_TABLE, data_list=data_list, where_clauses=where_clauses, schema=TEST_SCHEMA)
@@ -72,6 +75,7 @@ def test_sqlpandasconnection_full_flow():
         assert "Bob Updated" in multi_df["name"].values
         assert "Alice Final" in multi_df["name"].values
         assert multi_df.iloc[1]["bool"] == True
+        assert multi_df.iloc[0]["credit_score"] == 10
         # Verify datetime was properly updated for both rows
         for i in range(len(multi_df)):
             assert multi_df.iloc[i]["last_update"].date() == update_time.date()

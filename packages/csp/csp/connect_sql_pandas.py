@@ -159,6 +159,15 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
         elif isinstance(value, bool):
             formatted_value = int(value)
             
+        elif isinstance(value, (int, np.integer)):
+            formatted_value = str(int(value))
+        elif isinstance(value, (float, np.floating)):
+            # Check if it's a whole number (like 630694.0)
+            if value.is_integer():
+                formatted_value = str(int(value))  # Remove decimal point for whole numbers
+            else:
+                formatted_value = str(value)  # Keep decimal for actual fractional numbers
+        
         elif isinstance(value, str):
             # Check if it's possibly a datetime string
             if re.match(r'\d{4}-\d{2}-\d{2}.*\d{2}:\d{2}:\d{2}', value):
