@@ -155,7 +155,10 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
         # Log the column name, value, and type for every field
         if pd.isna(value) or value is None:
             formatted_value = 'NULL'
-            logging.info(f"{column}: Handling as NULL value")
+        # If value is True or False convert it into 1 or 0
+        elif isinstance(value, bool):
+            formatted_value = int(value)
+            
         elif isinstance(value, str):
             # Check if it's possibly a datetime string
             if re.match(r'\d{4}-\d{2}-\d{2}.*\d{2}:\d{2}:\d{2}', value):
@@ -164,6 +167,9 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
                     base, micros = value.split('.')
                     value = f"{base}.{micros[:3]}" if len(micros) > 3 else f"{base}.{micros}"
                 formatted_value = f"'{value}'"
+            # Check if it's a boolean string
+            elif value.lower() in ['true', 'false']:
+                formatted_value = int(value.lower() == 'true')
             else:
                 formatted_value = f"'{value}'"
         elif isinstance(value, pd._libs.tslibs.timestamps.Timestamp):
