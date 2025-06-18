@@ -150,6 +150,7 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
         SQL UPDATE query string
     """
     set_clauses = []
+    column_data_type = []
     
     for column, value in data.items():
         # Log the column name, value, and type for every field
@@ -236,7 +237,6 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
                 formatted_value = str(value)
         
         set_clauses.append(f"[{column}] = {formatted_value}")
-        column_data_type = []
         column_data_type.append(f"[{column}] = {type(value)}")
     
     set_clause = ', '.join(set_clauses)
