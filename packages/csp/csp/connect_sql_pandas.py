@@ -181,17 +181,22 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
                 formatted_value = int(value.lower() == 'true')
             # Check if it's a numeric string first
             elif value.replace('.', '', 1).isdigit():  # Fast check if it's numeric (allows one decimal point)
-                try:
-                    # Try to convert to float
-                    num_val = float(value)
-                    # If it's a whole number, convert to int to remove the decimal point
-                    if num_val.is_integer():
-                        formatted_value = str(int(num_val))
-                    else:
-                        formatted_value = str(num_val)  # Keep as float string without quotes
-                except ValueError:
-                    # Not a valid number, treat as regular string
+                # Check for leading zeros - if present, treat as string
+                if value.startswith('0') and len(value) > 1 and value[1] != '.':
+                    # Has leading zeros, keep as string
                     formatted_value = f"'{value}'"
+                else:
+                    try:
+                        # Try to convert to float
+                        num_val = float(value)
+                        # If it's a whole number, convert to int to remove the decimal point
+                        if num_val.is_integer():
+                            formatted_value = str(int(num_val))
+                        else:
+                            formatted_value = str(num_val)  # Keep as float string without quotes
+                    except ValueError:
+                        # Not a valid number, treat as regular string
+                        formatted_value = f"'{value}'"
             else:
                 formatted_value = f"'{value}'"
         elif isinstance(value, pd._libs.tslibs.timestamps.Timestamp):
@@ -231,15 +236,18 @@ def build_update_query(table: str, data: pd.Series, where_clause: str = "", sche
                 formatted_value = str(value)
         
         set_clauses.append(f"[{column}] = {formatted_value}")
+        column_data_type = []
+        column_data_type.append(f"[{column}] = {type(value)}")
     
     set_clause = ', '.join(set_clauses)
     query = f"UPDATE [{schema}].[{table}] SET {set_clause}"
+    summary_column_data_type = ', '.join(column_data_type)
     
     if where_clause:
         query += f"\n{where_clause}"
     
 
-    return query + ";"
+    return query + ";", summary_column_data_type
 
 def round_datetime_seconds(datetime_str: str) -> str:
     """Very simple solution - just remove microseconds completely"""
@@ -697,8 +705,13 @@ class SQLPandasConnection:
             schema: Schema name
             verbose: Enable verbose logging
         """
-        query = build_update_query(table, data, where_clause, schema)
-        self.execute_query(query, verbose)        
+        query, summary_column_data_type = build_update_query(table, data, where_clause, schema)
+        try:
+            self.execute_query(query, verbose)        
+        except Exception as e:
+            logging.error(f"{e}\nColumn data types: {summary_column_data_type}")
+            # Re-raise with additional context
+            raise Exception(f"{e} - Column data types: {summary_column_data_type}") from e
         if verbose or self.verbose:
             logging.info(f'Successfully updated row in {schema}.{table}')
     
@@ -728,8 +741,13 @@ class SQLPandasConnection:
             where_clauses_list = where_clauses
 
         for data, where_clause in zip(data_list, where_clauses_list):
-            query = build_update_query(table, data, where_clause, schema)
-            self.execute_query(query, verbose)
+            query, summary_column_data_type = build_update_query(table, data, where_clause, schema)
+            try:
+                self.execute_query(query, verbose)
+            except Exception as e:
+                logging.error(f"{e}\nColumn data types: {summary_column_data_type}")
+                # Re-raise with additional context
+                raise Exception(f"{e} - Column data types: {summary_column_data_type}") from e
             if verbose or self.verbose:
                 logging.info(f"Successfully updated row in {schema}.{table}")
 
