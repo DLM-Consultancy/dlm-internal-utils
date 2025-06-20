@@ -5,6 +5,7 @@ import numpy as np
 import urllib
 import sqlalchemy as sa
 import logging
+import time
 logging.basicConfig(level=logging.INFO)
 from typing import Optional, List, Union, Any
 from contextlib import contextmanager
