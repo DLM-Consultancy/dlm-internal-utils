@@ -275,6 +275,10 @@ class SQLPandasConnection:
                  password: str,
                  driver: str = '{ODBC Driver 18 for SQL Server}',
                  timeout: int = 30,
+                 pool_recycle: int = 1800,  # 30 minutes default
+                 pool_pre_ping: bool = True,
+                 max_retries: int = 3,
+                 retry_interval: int = 2,
                  verbose: bool = True):
         """
         Initialize SQL Server connection.
@@ -286,11 +290,17 @@ class SQLPandasConnection:
             password: Password for authentication
             driver: ODBC driver to use
             timeout: Connection timeout in seconds
+            pool_recycle: Recycle connections after this many seconds
+            pool_pre_ping: Whether to test connection before use
+            max_retries: Maximum number of connection retry attempts
+            retry_interval: Seconds to wait between retries
             verbose: Enable verbose logging
         """
         self.server = server
         self.database = database
         self.verbose = verbose
+        self.max_retries = max_retries
+        self.retry_interval = retry_interval
         
         # Build connection strings
         connection_params = (
@@ -305,19 +315,46 @@ class SQLPandasConnection:
         
         encoded_params = urllib.parse.quote_plus(connection_params)
         
-        try:
-            # PyODBC connection for cursor operations
-            self.connection = pyodbc.connect(connection_params)
-            
-            # SQLAlchemy engine for DataFrame operations
-            self.engine = sa.create_engine(f"mssql+pyodbc:///?odbc_connect={encoded_params}")
-            
-            if verbose:
-                logging.info(f'Successfully connected to {server}/{database}')
+        retry_count = 0
+        last_exception = None
+        
+        while retry_count < self.max_retries:
+            try:
+                # PyODBC connection for cursor operations
+                self.connection = pyodbc.connect(connection_params)
                 
-        except Exception as e:
-            logging.error(f'Failed to connect to database: {e}')
-            raise
+                # SQLAlchemy engine with connection pooling settings
+                self.engine = sa.create_engine(
+                    f"mssql+pyodbc:///?odbc_connect={encoded_params}",
+                    pool_pre_ping=pool_pre_ping,  # Test connection before use to avoid stale connections
+                    pool_recycle=pool_recycle,    # Recycle connections after specified seconds
+                    pool_timeout=timeout,         # How long to wait on a busy pool
+                    pool_size=5,                  # Maintain up to 5 connections
+                    max_overflow=10,              # Allow up to 10 additional connections
+                    connect_args={
+                        "connect_timeout": timeout
+                    }
+                )
+                
+                if verbose:
+                    logging.info(f'Successfully connected to {server}/{database}')
+                    
+                return  # Connection successful, exit the retry loop
+                    
+            except Exception as e:
+                retry_count += 1
+                last_exception = e
+                
+                if verbose:
+                    logging.warning(f'Connection attempt {retry_count} failed: {e}')
+                    
+                if retry_count < self.max_retries:
+                    logging.info(f'Retrying in {self.retry_interval} seconds...')
+                    time.sleep(self.retry_interval)
+        
+        # If we've exhausted all retries
+        logging.error(f'Failed to connect to database after {self.max_retries} attempts. Last error: {last_exception}')
+        raise last_exception
     
 
     @contextmanager
