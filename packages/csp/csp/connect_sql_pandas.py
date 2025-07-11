@@ -303,17 +303,19 @@ class SQLPandasConnection:
         self.max_retries = max_retries
         self.retry_interval = retry_interval
         
-        # Build connection strings
+        # Build connection strings - handling special characters in password
+        # For PyODBC connection
         connection_params = (
             f'DRIVER={driver};'
             f'SERVER={server};'
             f'DATABASE={database};'
             f'UID={username};'
-            f'PWD={password};'
+            f'PWD={{{password}}};'  # Enclosing password in {} to handle special characters
             f'Connection Timeout={timeout};'
             'TrustServerCertificate=yes;'
         )
         
+        # For SQLAlchemy - URL encode the entire connection string
         encoded_params = urllib.parse.quote_plus(connection_params)
         
         retry_count = 0
