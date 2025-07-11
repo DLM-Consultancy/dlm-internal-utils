@@ -304,13 +304,16 @@ class SQLPandasConnection:
         self.retry_interval = retry_interval
         
         # Build connection strings - handling special characters in password
+        # Escape curly braces in password for ODBC
+        escaped_password = password.replace('{', '{{').replace('}', '}}')
+        
         # For PyODBC connection
         connection_params = (
             f'DRIVER={driver};'
             f'SERVER={server};'
             f'DATABASE={database};'
             f'UID={username};'
-            f'PWD={{{password}}};'  # Enclosing password in {} to handle special characters
+            f'PWD={escaped_password};'  # Escape curly braces for ODBC
             f'Connection Timeout={timeout};'
             'TrustServerCertificate=yes;'
         )
@@ -341,6 +344,10 @@ class SQLPandasConnection:
                 
                 if verbose:
                     logging.info(f'Successfully connected to {server}/{database}')
+                    # Debug: Show connection string with masked password for troubleshooting
+                    masked_password = '*' * min(len(password), 8) if password else ''
+                    debug_params = connection_params.replace(f'PWD={escaped_password}', f'PWD={masked_password}')
+                    logging.debug(f'Connection string (masked): {debug_params}')
                     
                 return  # Connection successful, exit the retry loop
                     
@@ -508,7 +515,7 @@ class SQLPandasConnection:
                                     logging.error(f"Error handling datetime: {e}")
                         
                         # Use pandas to convert what it can
-                        result_df.loc[:, column] = pd.to_datetime(
+                        result_df[column] = pd.to_datetime(
                             result_df[column], 
                             errors='coerce',
                             format='%Y-%m-%d %H:%M:%S'

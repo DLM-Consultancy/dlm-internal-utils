@@ -8,14 +8,14 @@ from csp.connect_sql_pandas import SQLPandasConnection
 load_dotenv()
 
 TEST_TABLE = "test_table"
-TEST_SCHEMA = "cico"
+TEST_SCHEMA = "crm"
 
 def test_sqlpandasconnection_full_flow():
     conn = SQLPandasConnection(
-        server=os.getenv("azure_cico_server"),
-        database=os.getenv("azure_cico_database"),
-        username=os.getenv("azure_cico_username"),
-        password=os.getenv("azure_cico_password"),
+        server=os.getenv("azure_crm_server"),
+        database=os.getenv("azure_crm_database"),
+        username=os.getenv("azure_crm_username"),
+        password=os.getenv("azure_crm_password"),
         verbose=True
     )
 
