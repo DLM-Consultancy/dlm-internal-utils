@@ -304,34 +304,43 @@ class SQLPandasConnection:
         self.retry_interval = retry_interval
         
         # Build connection strings - handling special characters in password
-        # Escape curly braces in password for ODBC
-        escaped_password = password.replace('{', '{{').replace('}', '}}')
+        # For ODBC connection strings, we need to handle special characters properly
+        # PyODBC expects certain characters to be escaped or the connection wrapped properly
         
-        # For PyODBC connection
-        connection_params = (
-            f'DRIVER={driver};'
-            f'SERVER={server};'
-            f'DATABASE={database};'
-            f'UID={username};'
-            f'PWD={escaped_password};'  # Escape curly braces for ODBC
-            f'Connection Timeout={timeout};'
-            'TrustServerCertificate=yes;'
-        )
-        
-        # For SQLAlchemy - URL encode the entire connection string
-        encoded_params = urllib.parse.quote_plus(connection_params)
-        
+        # Method 1: Direct PyODBC connection with dictionary (most reliable for special chars)
         retry_count = 0
         last_exception = None
         
         while retry_count < self.max_retries:
             try:
-                # PyODBC connection for cursor operations
-                self.connection = pyodbc.connect(connection_params)
+                # PyODBC connection using keyword arguments - handles special chars better
+                self.connection = pyodbc.connect(
+                    driver=driver,
+                    server=server,
+                    database=database,
+                    uid=username,
+                    pwd=password,  # PyODBC handles special characters internally
+                    timeout=timeout,
+                    trustservercertificate='yes'
+                )
+                
+                # For SQLAlchemy - create engine using a creator function
+                # This avoids connection string parsing issues with special characters
+                def creator():
+                    return pyodbc.connect(
+                        driver=driver,
+                        server=server,
+                        database=database,
+                        uid=username,
+                        pwd=password,
+                        timeout=timeout,
+                        trustservercertificate='yes'
+                    )
                 
                 # SQLAlchemy engine with connection pooling settings
                 self.engine = sa.create_engine(
-                    f"mssql+pyodbc:///?odbc_connect={encoded_params}",
+                    "mssql+pyodbc://",
+                    creator=creator,
                     pool_pre_ping=pool_pre_ping,  # Test connection before use to avoid stale connections
                     pool_recycle=pool_recycle,    # Recycle connections after specified seconds
                     pool_timeout=timeout,         # How long to wait on a busy pool
@@ -344,10 +353,9 @@ class SQLPandasConnection:
                 
                 if verbose:
                     logging.info(f'Successfully connected to {server}/{database}')
-                    # Debug: Show connection string with masked password for troubleshooting
+                    # Debug: Show connection info with masked password
                     masked_password = '*' * min(len(password), 8) if password else ''
-                    debug_params = connection_params.replace(f'PWD={escaped_password}', f'PWD={masked_password}')
-                    logging.debug(f'Connection string (masked): {debug_params}')
+                    logging.debug(f'Connection info: server={server}, database={database}, username={username}, password={masked_password}')
                     
                 return  # Connection successful, exit the retry loop
                     
